@@ -55,12 +55,18 @@ def processed_img(img_path):
 
 def run():
     st.sidebar.title("Image Upload")
-    img_file = st.sidebar.file_uploader("Choose an Image", type=["jpg", "png"])
+    img_file = st.sidebar.file_uploader("Choose an Image", type=["jpg", "png", "webp"])
     st.title("Fruit Recognition")
     if img_file is not None:
         current_time = time.strftime("%Y%m%d%H%M%S")  # Add a timestamp
         img_content = img_file.read()  # Store image content
-        img = Image.open(io.BytesIO(img_content))
+        img_extension = os.path.splitext(img_file.name)[1].lower()
+
+        if img_extension == ".webp":
+            img = Image.open(io.BytesIO(img_content)).convert("RGB")
+        else:
+            img = Image.open(io.BytesIO(img_content))
+
         st.image(img, use_column_width=False, width=500)
 
         img_hash = hashlib.md5(img_content).hexdigest()
