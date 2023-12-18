@@ -1,31 +1,70 @@
-import streamlit as st
-from PIL import Image
-from keras.utils import load_img, img_to_array
-import numpy as np
-from keras.models import load_model
-import requests
-from bs4 import BeautifulSoup
 import hashlib
-import os
 import io
+import os
 import time  # Import the time module
 
+import cv2
+import numpy as np
+import requests
+import streamlit as st
+from bs4 import BeautifulSoup
+from keras.models import load_model
+from keras.utils import img_to_array, load_img
+from PIL import Image
+
+
 # Load the model and labels
-model = load_model('FV.h5')
-labels = {0: 'apple', 1: 'banana', 2: 'beetroot', 3: 'bell pepper', 4: 'cabbage', 5: 'capsicum', 6: 'carrot',
-          7: 'cauliflower', 8: 'chilli pepper', 9: 'corn', 10: 'cucumber', 11: 'eggplant', 12: 'garlic', 13: 'ginger',
-          14: 'grapes', 15: 'jalepeno', 16: 'kiwi', 17: 'lemon', 18: 'lettuce',
-          19: 'mango', 20: 'onion', 21: 'orange', 22: 'paprika', 23: 'pear', 24: 'peas', 25: 'pineapple',
-          26: 'pomegranate', 27: 'potato', 28: 'raddish', 29: 'soy beans', 30: 'spinach', 31: 'sweetcorn',
-          32: 'sweetpotato', 33: 'tomato', 34: 'turnip', 35: 'watermelon'}
+model = load_model('model.h5')
+labels = {
+    0: "apple",
+    1: "avocado",
+    2: "banana",
+    3: "cucumber",
+    4: "dragonfruit",
+    5: "durian",
+    6: "grape",
+    7: "guava",
+    8: "kiwi",
+    9: "lemon",
+    10: "lychee",
+    11: "mango",
+    12: "orange",
+    13: "papaya",
+    14: "pear",
+    15: "pineapple",
+    16: "pomegranate",
+    17: "strawberry",
+    18: "tomato",
+    19: "watermelon",
+}
 
-fruits = ['Apple', 'Banana', 'Bello Pepper', 'Chilli Pepper', 'Grapes', 'Jalepeno', 'Kiwi', 'Lemon', 'Mango', 'Orange',
-          'Paprika', 'Pear', 'Pineapple', 'Pomegranate', 'Watermelon']
-vegetables = ['Beetroot', 'Cabbage', 'Capsicum', 'Carrot', 'Cauliflower', 'Corn', 'Cucumber', 'Eggplant', 'Ginger',
-              'Lettuce', 'Onion', 'Peas', 'Potato', 'Raddish', 'Soy Beans', 'Spinach', 'Sweetcorn', 'Sweetpotato',
-              'Tomato', 'Turnip']
+def resize_image(img_path, size=(224, 224)):
+    """This function resize the image to square shape and save it to the same path.
+    """
+    img = cv2.imread(img_path)
+    h, w = img.shape[:2]
+    c = img.shape[2] if len(img.shape) > 2 else 1
+    if h == w:
+        return cv2.resize(img, size, cv2.INTER_AREA)
 
+    dif = h if h > w else w
 
+    interpolation = (
+        cv2.INTER_AREA if dif > (size[0] + size[1]) // 2 else cv2.INTER_CUBIC
+    )
+
+    x_pos = (dif - w) // 2
+    y_pos = (dif - h) // 2
+
+    if len(img.shape) == 2:
+        mask = np.zeros((dif, dif), dtype=img.dtype)
+        mask[y_pos : y_pos + h, x_pos : x_pos + w] = img[:h, :w]
+    else:
+        mask = np.zeros((dif, dif, c), dtype=img.dtype)
+        mask[y_pos : y_pos + h, x_pos : x_pos + w, :] = img[:h, :w, :]
+    mask = cv2.resize(mask, size, interpolation)
+    cv2.imwrite(img_path, mask)
+    
 def fetch_calories(prediction):
     try:
         url = 'https://www.google.com/search?&q=calories in ' + prediction
@@ -39,18 +78,17 @@ def fetch_calories(prediction):
 
 
 def processed_img(img_path):
+    # Load the image
     img = load_img(img_path, target_size=(224, 224, 3))
     img = img_to_array(img)
-    img = img / 255
-    img = np.expand_dims(img, [0])
-    answer = model.predict(img)
-    y_class = answer.argmax(axis=-1)
-    print(y_class)
-    y = " ".join(str(x) for x in y_class)
-    y = int(y)
-    res = labels[y]
-    print(res)
-    return res.capitalize()
+    img = np.expand_dims(img, axis=0)
+    
+    # Predict the image
+    prediction = model.predict(img)
+    predicted_class = np.argmax(prediction)
+
+    predicted_label = labels[predicted_class]
+    return predicted_label, prediction[0][predicted_class] * 100
 
 
 def run():
@@ -75,17 +113,23 @@ def run():
         save_image_path = os.path.join('images', f'{current_time}_{img_hash}.png')
         with open(save_image_path, "wb") as f:
             f.write(img_content)
+            
+        # Resize the image
+        resize_image(save_image_path)
 
-        result = processed_img(save_image_path)
+        result, percentage = processed_img(save_image_path)
         print(result)
-        if result in vegetables:
-            st.info('**Category : Vegetables**')
-        else:
-            st.info('**Category : Fruit**')
+        
+        # Display the result
         st.success("**Predicted : " + result + '**')
+        
+        # Display the accuracy
+        st.info('**Accuracy : ' + str(round(percentage, 2)) + '%**')
+        
+        # Display the calories
         cal = fetch_calories(result)
         if cal:
-            st.warning('**' + cal + '(100 grams)**')
+            st.warning('**' + cal + ' (in 100 grams)**')
 
 
 run()
