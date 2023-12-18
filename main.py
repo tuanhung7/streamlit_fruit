@@ -14,7 +14,7 @@ from PIL import Image
 
 
 # Load the model and labels
-model = load_model('model.h5')
+model = load_model('87.h5')
 labels = {
     0: "apple",
     1: "avocado",
@@ -38,9 +38,9 @@ labels = {
     19: "watermelon",
 }
 
+
 def resize_image(img_path, size=(224, 224)):
-    """This function resize the image to square shape and save it to the same path.
-    """
+    """This function resize the image to square shape and save it to the same path."""
     img = cv2.imread(img_path)
     h, w = img.shape[:2]
     c = img.shape[2] if len(img.shape) > 2 else 1
@@ -64,7 +64,8 @@ def resize_image(img_path, size=(224, 224)):
         mask[y_pos : y_pos + h, x_pos : x_pos + w, :] = img[:h, :w, :]
     mask = cv2.resize(mask, size, interpolation)
     cv2.imwrite(img_path, mask)
-    
+
+
 def fetch_calories(prediction):
     try:
         url = 'https://www.google.com/search?&q=calories in ' + prediction
@@ -82,7 +83,7 @@ def processed_img(img_path):
     img = load_img(img_path, target_size=(224, 224, 3))
     img = img_to_array(img)
     img = np.expand_dims(img, axis=0)
-    
+
     # Predict the image
     prediction = model.predict(img)
     predicted_class = np.argmax(prediction)
@@ -113,19 +114,19 @@ def run():
         save_image_path = os.path.join('images', f'{current_time}_{img_hash}.png')
         with open(save_image_path, "wb") as f:
             f.write(img_content)
-            
+
         # Resize the image
         resize_image(save_image_path)
 
         result, percentage = processed_img(save_image_path)
         print(result)
-        
+
         # Display the result
         st.success("**Predicted : " + result + '**')
-        
+
         # Display the accuracy
         st.info('**Accuracy : ' + str(round(percentage, 2)) + '%**')
-        
+
         # Display the calories
         cal = fetch_calories(result)
         if cal:
