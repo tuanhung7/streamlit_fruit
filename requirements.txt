@@ -6,3 +6,4 @@ Pillow
 flask
 keras
 tensorflow
+opencv-python
